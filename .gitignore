@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+imgui.ini
+.polyscope.ini
+/experiments/**
+/metrics/build/
+.venv/
+.idea
