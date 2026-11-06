@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -11,6 +10,7 @@ from typing import Any
 import trimesh
 
 from common import ROOT, get_handler
+from methods.command_runner import run_command
 
 METRICS_BIN_DIR = Path(os.environ.get("VOXELSURFBENCH_METRICS_BIN_DIR", ROOT / "metrics" / "build" / "bin"))
 
@@ -77,7 +77,14 @@ def _executable(name: str) -> Path:
 
 
 def _run_json(name: str, *args: str) -> dict[str, Any]:
-    proc = subprocess.run([str(_executable(name)), *args], capture_output=True, text=True)
+    proc = run_command(
+        _executable(name),
+        args,
+        check=False,
+        echo=False,
+        capture_output=True,
+        text=True,
+    )
     if proc.returncode != 0:
         raise RuntimeError(f"{name} failed ({proc.returncode}): {proc.stdout[-500:]} {proc.stderr[-500:]}")
     try:

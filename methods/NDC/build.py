@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -10,6 +9,7 @@ from pathlib import Path
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
 
+from command_runner import run_command
 from python_env import ensure_venv, python_executable
 
 
@@ -21,41 +21,38 @@ WEIGHTS_URL = "https://drive.google.com/file/d/1rLog9aX3gcKYF3FCHeL4BHDBHhXoPH3V
 METHODS = ("ndc", "ndcx", "undc")
 
 
-def run(command: list[str], *, cwd: Path | None = None) -> None:
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=str(cwd) if cwd else None, check=True)
-
-
 def ensure_repo() -> None:
     if REPO_DIR.exists():
         if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "main.py").is_file():
             raise RuntimeError(f"{REPO_DIR} exists but is not an NDC clone.")
         return
-    run(["git", "clone", "--depth", "1", REPO_URL, str(REPO_DIR)])
+    run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
 
 
 def install_environment(torch_backend: str) -> None:
     python = ensure_venv()
-    torch_probe = subprocess.run(
-        [str(python), "-c", "import torch; print(torch.version.cuda or '')"],
+    torch_probe = run_command(
+        python,
+        ["-c", "import torch; print(torch.version.cuda or '')"],
+        check=False,
+        echo=False,
         capture_output=True,
         text=True,
-        check=False,
     )
     torch_installed = torch_probe.returncode == 0
     has_cuda_torch = torch_installed and bool(torch_probe.stdout.strip())
     if not torch_installed or (torch_backend == "cuda" and not has_cuda_torch):
         index = "https://download.pytorch.org/whl/cu121" if torch_backend == "cuda" else "https://download.pytorch.org/whl/cpu"
-        command = [str(python), "-m", "pip", "install", "--disable-pip-version-check", "--index-url", index]
+        arguments = ["-m", "pip", "install", "--disable-pip-version-check", "--index-url", index]
         if torch_installed:
-            command.extend(["--upgrade", "--force-reinstall"])
-        command.append("torch")
-        run(command)
-    run([
-        str(python), "-m", "pip", "install", "--disable-pip-version-check",
+            arguments.extend(["--upgrade", "--force-reinstall"])
+        arguments.append("torch")
+        run_command(python, arguments)
+    run_command(python, [
+        "-m", "pip", "install", "--disable-pip-version-check",
         "numpy", "h5py", "scipy", "scikit-learn", "trimesh", "cython", "py7zr", "gdown",
     ])
-    run([str(python), "setup.py", "build_ext", "--inplace"], cwd=REPO_DIR)
+    run_command(python, ["setup.py", "build_ext", "--inplace"], cwd=REPO_DIR)
 
 
 def download_and_extract_weights() -> None:
@@ -69,14 +66,14 @@ ok = gdown.download(url={WEIGHTS_URL!r}, output={str(archive)!r}, quiet=False, f
 if not ok:
     raise RuntimeError("Google Drive download failed")
 """
-        run([str(python_executable()), "-c", download_script])
+        run_command(python_executable(), ["-c", download_script])
     extract_script = f"""
 import py7zr
 
 with py7zr.SevenZipFile({str(archive)!r}, mode="r") as weights:
     weights.extractall(path={str(WEIGHTS_DIR)!r})
 """
-    run([str(python_executable()), "-c", extract_script])
+    run_command(python_executable(), ["-c", extract_script])
 
 
 def find_checkpoint(method: str, kind: str) -> Path | None:

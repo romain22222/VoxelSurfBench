@@ -47,23 +47,25 @@ and with visibility normals (NPN).
 Prepare a method before running it:
 
 ```
-python methods\Reproduction\build.py
-python methods\NDC\build.py
-python methods\NPN\build.py
+python methods/Reproduction/build.py
+python methods/NDC/build.py
+python methods/NPN/build.py
 ```
 
 Python methods share the project's root `.venv`, created by the first Python build. Reconstruction builds in WSL2 on
-Windows. NDC compiles its extension and downloads the pretrained weights. NP and NPN use the same CUDA-enabled build;
-NPN additionally uses visibility normals. The NPN build creates a small standalone repository containing only its
-source files, using a blob-filtered sparse checkout so
-unrelated DGNS assets and meshes are not fetched. NumGrad-Pull has a reserved directory under `methods/` for its later
-integration. Source checkouts and virtual environments are ignored by Git.
+Windows. NDC compiles its extension and downloads the pretrained weights; it uses CPU PyTorch by default, or CUDA with
+`--torch-backend cuda`. NP and NPN share the same CUDA-enabled build and require a CUDA-capable GPU; NPN additionally
+uses visibility normals. The NPN build creates a small standalone repository containing only its source files, using a
+blob-filtered sparse checkout so unrelated DGNS assets and meshes are not fetched. NumGrad-Pull has a reserved
+directory under `methods/` for its later integration. Source checkouts and virtual environments are ignored by Git.
 
 ## Registering a method
 
 A method is any command that reads the inputs of `gt/` and writes a mesh to `$OUTPUT_MESH` (`base.<ext>`).
 Its raw output is converted to the GT frame from the `alignment` entry (`frame`, `swap_xz`, `scale_divisor`,
 `offset_voxels`, `offset_voxels_by_grid`), see `alignment.py`. Available placeholders are listed in `pipeline.py`.
+`methods/command_runner.py` centralizes OS-aware command execution; pass an executable and argument list instead of
+assembling a shell command string (the Reconstruction adapter uses a quoted Bash script only for WSL).
 
 ```
 python add_method.py --name mc --path '$ROOT/adapters/run_mc.py' --args '--vol $VOL --output $OUTPUT_MESH' \

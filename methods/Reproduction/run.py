@@ -5,7 +5,14 @@ import os
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+
+THIS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(THIS_DIR.parent))
+
+from command_runner import run_command
 
 
 METHODS = {
@@ -53,9 +60,9 @@ def run_tool(executable: Path, args: list[str], repo_dir: Path) -> None:
             *(wsl_path(Path(value)) if Path(value).is_absolute() else value for value in args),
         ]
         script = f"cd {shlex.quote(wsl_path(repo_dir))} && " + " ".join(shlex.quote(value) for value in command)
-        subprocess.run(["wsl", "bash", "-lc", script], check=True)
+        run_command("wsl", ["bash", "-lc", script])
         return
-    subprocess.run([str(executable), *args], cwd=str(repo_dir), check=True)
+    run_command(executable, args, cwd=repo_dir)
 
 
 def find_mesh(work_dir: Path, extensions: set[str] = EXTENSIONS) -> Path | None:

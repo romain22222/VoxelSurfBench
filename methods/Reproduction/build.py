@@ -4,19 +4,19 @@ import argparse
 import os
 import shlex
 import shutil
-import subprocess
+import sys
 from pathlib import Path
 
 
 THIS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(THIS_DIR.parent))
+
+from command_runner import run_command
+
+
 REPO_URL = "https://github.com/JacquesOlivierLachaud/Reconstruction.git"
 REPO_DIR = THIS_DIR / "Reconstruction"
 BUILD_DIR = REPO_DIR / "build"
-
-
-def run(command: list[str], *, cwd: Path | None = None) -> None:
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=str(cwd) if cwd else None, check=True)
 
 
 def ensure_repo() -> None:
@@ -24,7 +24,7 @@ def ensure_repo() -> None:
         if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "CMakeLists.txt").is_file():
             raise RuntimeError(f"{REPO_DIR} exists but is not a Reconstruction clone.")
         return
-    run(["git", "clone", "--depth", "1", REPO_URL, str(REPO_DIR)])
+    run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
 
 
 def wsl_path(path: Path) -> str:
@@ -46,14 +46,14 @@ def build_in_wsl() -> None:
         f"cmake -S {source} -B {build} -G 'Unix Makefiles'; "
         f"cmake --build {build} --parallel"
     )
-    run(["wsl", "bash", "-lc", script])
+    run_command("wsl", ["bash", "-lc", script])
 
 
 def build_native() -> None:
     if not shutil.which("cmake") or not shutil.which("g++") or not shutil.which("make"):
         raise FileNotFoundError("CMake, g++, and make are required. Install them before building Reconstruction.")
-    run(["cmake", "-S", str(REPO_DIR), "-B", str(BUILD_DIR), "-G", "Unix Makefiles"])
-    run(["cmake", "--build", str(BUILD_DIR), "--parallel"])
+    run_command("cmake", ["-S", REPO_DIR, "-B", BUILD_DIR, "-G", "Unix Makefiles"])
+    run_command("cmake", ["--build", BUILD_DIR, "--parallel"])
 
 
 def main() -> int:

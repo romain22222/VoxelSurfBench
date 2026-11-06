@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +10,7 @@ from pathlib import Path
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
 
+from command_runner import run_command
 from python_env import python_executable
 
 
@@ -86,16 +86,15 @@ def main() -> int:
         "raise SystemExit('NPN requires a CUDA-capable GPU and CUDA-enabled PyTorch.') "
         "if not torch.cuda.is_available() else None"
     )
-    subprocess.run([str(python), "-c", check_cuda], check=True)
-    command = [
-        str(python), str(repo_dir / "run.py"),
+    run_command(python, ["-c", check_cuda])
+    arguments = [
+        repo_dir / "run.py",
         "--gpu", str(args.gpu),
         "--conf", str(config),
         "--dataname", args.shape_name,
         "--dir", run_name,
     ]
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=str(repo_dir), check=True)
+    run_command(python, arguments, cwd=repo_dir)
 
     output_dir = output_root / run_name / "outputs"
     candidates = sorted(output_dir.glob("*.ply"), key=lambda path: path.stat().st_mtime)

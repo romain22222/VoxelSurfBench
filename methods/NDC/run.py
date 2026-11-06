@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -10,6 +9,7 @@ from pathlib import Path
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
 
+from command_runner import run_command
 from python_env import python_executable
 
 
@@ -55,8 +55,8 @@ def main() -> int:
 
     sample_dir = work_dir / f"{args.method}_run"
     sample_dir.mkdir(parents=True, exist_ok=True)
-    command = [
-        str(python), "main.py",
+    arguments = [
+        "main.py",
         "--test_input", str(binvox),
         "--input_type", "voxel",
         "--method", args.method,
@@ -64,8 +64,7 @@ def main() -> int:
         "--sample_dir", str(sample_dir),
         "--gpu", args.gpu,
     ]
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=str(repo_dir), check=True)
+    run_command(python, arguments, cwd=repo_dir)
 
     generated = sample_dir / f"quicktest_{args.method}_voxel.obj"
     if not generated.is_file():

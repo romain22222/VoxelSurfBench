@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -11,6 +10,7 @@ from pathlib import Path
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
 
+from command_runner import run_command
 from python_env import ensure_venv, python_executable
 
 
@@ -26,11 +26,6 @@ SOURCE_FILES = (
 )
 
 
-def run(command: list[str], *, cwd: Path | None = None) -> None:
-    print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=str(cwd) if cwd else None, check=True)
-
-
 def ensure_repo() -> None:
     if REPO_DIR.exists():
         if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "run.py").is_file():
@@ -39,14 +34,14 @@ def ensure_repo() -> None:
 
     with tempfile.TemporaryDirectory(prefix="npn-source-") as temp:
         upstream = Path(temp) / "upstream"
-        run([
-            "git", "clone", "--filter=blob:none", "--no-checkout", "--depth", "1",
-            REPO_URL, str(upstream),
+        run_command("git", [
+            "clone", "--filter=blob:none", "--no-checkout", "--depth", "1",
+            REPO_URL, upstream,
         ])
-        run(["git", "-C", str(upstream), "sparse-checkout", "init", "--no-cone"])
+        run_command("git", ["-C", upstream, "sparse-checkout", "init", "--no-cone"])
         patterns = [f"/{SOURCE_PATH}/{name}" for name in SOURCE_FILES]
-        run(["git", "-C", str(upstream), "sparse-checkout", "set", "--no-cone", *patterns])
-        run(["git", "-C", str(upstream), "checkout", "--detach"])
+        run_command("git", ["-C", upstream, "sparse-checkout", "set", "--no-cone", *patterns])
+        run_command("git", ["-C", upstream, "checkout", "--detach"])
 
         source_root = upstream / SOURCE_PATH
         REPO_DIR.mkdir(parents=True)
@@ -58,26 +53,28 @@ def ensure_repo() -> None:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
 
-    run(["git", "init", str(REPO_DIR)])
+    run_command("git", ["init", REPO_DIR])
     print("[info] Created a standalone NPN repository from only the method source files.")
 
 
 def install_environment() -> None:
     python = ensure_venv()
-    torch_probe = subprocess.run(
-        [str(python), "-c", "import torch; print(torch.version.cuda or '')"],
+    torch_probe = run_command(
+        python,
+        ["-c", "import torch; print(torch.version.cuda or '')"],
+        check=False,
+        echo=False,
         capture_output=True,
         text=True,
-        check=False,
     )
     if torch_probe.returncode != 0 or not torch_probe.stdout.strip():
-        run([
-            str(python), "-m", "pip", "install", "--disable-pip-version-check",
+        run_command(python, [
+            "-m", "pip", "install", "--disable-pip-version-check",
             "--upgrade", "--force-reinstall",
             "--index-url", "https://download.pytorch.org/whl/cu121", "torch",
         ])
-    run([
-        str(python), "-m", "pip", "install", "--disable-pip-version-check",
+    run_command(python, [
+        "-m", "pip", "install", "--disable-pip-version-check",
         "numpy", "scipy", "trimesh", "tqdm", "pyhocon", "scikit-image",
     ])
 

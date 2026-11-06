@@ -47,6 +47,7 @@ from common import (
     read_json,
     write_json,
 )
+from methods.command_runner import format_command, run_command
 from metrics import voxel_scale_metrics
 
 
@@ -198,9 +199,18 @@ def execute_registered_method(
         try:
             with log_path.open("w", encoding="utf-8") as log:
                 for command, cwd in plan:
-                    log.write("+ " + " ".join(command) + "\n")
+                    log.write("+ " + format_command(command) + "\n")
                     log.flush()
-                    ret = subprocess.run(command, cwd=str(cwd) if cwd else None, stdout=log, stderr=subprocess.STDOUT, text=True).returncode
+                    ret = run_command(
+                        command[0],
+                        command[1:],
+                        cwd=cwd,
+                        check=False,
+                        echo=False,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                    ).returncode
                     if ret != 0:
                         raise RuntimeError(f"Method '{method}' failed with exit code {ret}. See {log_path}")
             run_info["elapsed_sec"] = time.time() - started
