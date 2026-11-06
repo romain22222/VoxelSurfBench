@@ -38,7 +38,26 @@ experiments/
 Common options of the runners: `--overwrite`, `--stop-on-error`, `--dry-run`, `--python`, `--surface-samples`.
 All experiment data belongs below `experiments/`, which is ignored by git. `run_method.py` and
 `recompute_metrics.py` search it recursively; use `--shapes-root experiments/shapes_128` to restrict the set.
-`methods.json` starts empty; add a method with `add_method.py` before using the runners.
+`methods.json` contains the bundled methods; add more with `add_method.py` before using the runners.
+
+## Bundled reconstruction methods
+
+The registry includes the methods from the Reconstruction and NDC repositories, plus NeuralPull without normals (NP)
+and with visibility normals (NPN).
+Prepare a method before running it:
+
+```
+python methods\Reproduction\build.py
+python methods\NDC\build.py
+python methods\NPN\build.py
+```
+
+Python methods share the project's root `.venv`, created by the first Python build. Reconstruction builds in WSL2 on
+Windows. NDC compiles its extension and downloads the pretrained weights. NP and NPN use the same CUDA-enabled build;
+NPN additionally uses visibility normals. The NPN build creates a small standalone repository containing only its
+source files, using a blob-filtered sparse checkout so
+unrelated DGNS assets and meshes are not fetched. NumGrad-Pull has a reserved directory under `methods/` for its later
+integration. Source checkouts and virtual environments are ignored by Git.
 
 ## Registering a method
 

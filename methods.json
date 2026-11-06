@@ -1,1 +1,225 @@
-{}
+{
+  "mc": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "marchingcubes",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "dc": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "dualcontouring",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "aa": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "antialiasing",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "fineaa": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "fineantialiasing",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 2.0,
+      "offset_voxels": 0.5,
+      "offset_voxels_by_grid": {
+        "128": -1.0
+      }
+    }
+  },
+  "poissonReconstruction": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "poisson",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "off",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "shroud": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "shroud",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "regularization": {
+    "path": "$ROOT/methods/Reproduction/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--vol", "$VOL",
+      "--method", "regularization",
+      "--work-dir", "$WORKDIR/reconstruction",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "swap_xz": true,
+      "scale_divisor": 1.0,
+      "offset_voxels": 1.0,
+      "offset_voxels_by_grid": {
+        "128": -0.5
+      }
+    }
+  },
+  "neuralpull-normals": {
+    "path": "$ROOT/methods/NPN/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/NPN/NPN",
+      "--points", "$GT_DIR/$SHAPE_NAME.ply",
+      "--visnormals", "$VISNORMS",
+      "--shape-name", "$SHAPE_NAME",
+      "--work-dir", "$WORKDIR/npn",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "ply",
+    "alignment": {
+      "frame": "gt"
+    }
+  },
+  "np": {
+    "path": "$ROOT/methods/NPN/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/NPN/NPN",
+      "--points", "$GT_DIR/$SHAPE_NAME.ply",
+      "--shape-name", "$SHAPE_NAME",
+      "--work-dir", "$WORKDIR/np",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "ply",
+    "alignment": {
+      "frame": "gt"
+    }
+  },
+  "ndc": {
+    "path": "$ROOT/methods/NDC/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/NDC/NDC",
+      "--binvox", "$BINVOX",
+      "--method", "ndc",
+      "--work-dir", "$WORKDIR/ndc",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "offset_voxels": -0.5,
+      "offset_voxels_by_grid": {
+        "128": -1.0
+      }
+    }
+  },
+  "ndcx": {
+    "path": "$ROOT/methods/NDC/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/NDC/NDC",
+      "--binvox", "$BINVOX",
+      "--method", "ndcx",
+      "--work-dir", "$WORKDIR/ndcx",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "offset_voxels": -0.5,
+      "offset_voxels_by_grid": {
+        "128": -1.0
+      }
+    }
+  },
+  "undc": {
+    "path": "$ROOT/methods/NDC/run.py",
+    "args": [
+      "--repo-dir", "$ROOT/methods/NDC/NDC",
+      "--binvox", "$BINVOX",
+      "--method", "undc",
+      "--work-dir", "$WORKDIR/undc",
+      "--output-mesh", "$OUTPUT_MESH"
+    ],
+    "output_ext": "obj",
+    "alignment": {
+      "frame": "voxel",
+      "offset_voxels": -0.5,
+      "offset_voxels_by_grid": {
+        "128": -1.0
+      }
+    }
+  }
+}
