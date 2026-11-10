@@ -1,4 +1,6 @@
-"""Deterministic conversion of a raw method output to the GT frame ([-0.5, 0.5]^3). Nothing is fitted to the GT.
+"""Deterministic conversion of a raw method output to the GT frame ([-0.5, 0.5]^3).
+
+The transform follows DGNS's `Experimentations/best_align.py::raw_to_gt_frame`; nothing is fitted per shape to its GT.
 
 Each method declares how its raw output relates to the GT in its registry entry:
 

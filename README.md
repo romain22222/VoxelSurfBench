@@ -19,8 +19,8 @@ experiments/
   shapes_rot/<shape>/   same layout
 ```
 
-`gt/` contains `shape.vol`, `shape.binvox`, `visnormals.xyz`, `source.json`, the sampled point cloud `<shape>.ply`,
-`gt.<ext>` and (after camera setup) `camera.json`.
+`gt/` contains `shape.vol`, `shape.binvox`, `visnormals.xyz`, `source.json`, the point cloud `<shape>.ply` sampled
+from the exposed voxel faces of `shape.vol`, `gt.<ext>` and (after camera setup) `camera.json`.
 `base.<ext>` is the raw method output, `aligned.<ext>` the same mesh in the GT frame ([-0.5, 0.5]^3),
 `results.json` the metrics (in voxel units) and run information.
 
@@ -64,8 +64,9 @@ Source checkouts and virtual environments are ignored by Git.
 ## Preparing a shape
 
 `dataPreparation/prepare_shape.py` builds the benchmark inputs from an original triangle mesh (not an existing
-voxelization): it normalizes and samples the mesh, creates `.vol` and `.binvox` grids at the requested resolution, and
-computes DGtal visibility normals. For example, on Windows with the visibility tool available in WSL:
+voxelization): it normalizes and voxelizes the mesh, samples the point cloud from the resulting `.vol` surface (not
+from the GT mesh), creates the `.binvox` input and computes DGtal visibility normals. For example, on Windows with the
+visibility tool available in WSL:
 
 ```
 python dataPreparation/prepare_shape.py \
@@ -75,14 +76,15 @@ python dataPreparation/prepare_shape.py \
     --visibility-tool /home/romain22222/visibilityLattices/cmake-build-release/visibilityLattices
 ```
 
-The resulting `gt/` folder contains the normalized reference mesh, sampled point cloud, 64³ volume and BINVOX inputs,
-visibility normals, the original source mesh and a preparation manifest.
+The resulting `gt/` folder contains the normalized reference mesh, voxel-surface point cloud, 64³ volume and BINVOX
+inputs, visibility normals, the original source mesh and a preparation manifest.
 
 ## Registering a method
 
 A method is any command that reads the inputs of `gt/` and writes a mesh to `$OUTPUT_MESH` (`base.<ext>`).
 Its raw output is converted to the GT frame from the `alignment` entry (`frame`, `swap_xz`, `scale_divisor`,
-`offset_voxels`, `offset_voxels_by_grid`), see `alignment.py`. Available placeholders are listed in `pipeline.py`.
+`offset_voxels`, `offset_voxels_by_grid`), following DGNS's deterministic `raw_to_gt_frame` postprocess; no
+per-shape fitting to the GT is applied. See `alignment.py`; available placeholders are listed in `pipeline.py`.
 `methods/command_runner.py` centralizes OS-aware command execution; pass an executable and argument list instead of
 assembling a shell command string (the Reconstruction adapter uses a quoted Bash script only for WSL).
 

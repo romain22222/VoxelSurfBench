@@ -130,9 +130,6 @@ def prepare_shape(args: argparse.Namespace) -> Path:
         source_path.write_bytes(mesh_path.read_bytes())
     mesh.export(gt_dir / "gt.ply")
 
-    points, _ = trimesh.sample.sample_surface(mesh, args.point_count, seed=args.seed)
-    trimesh.PointCloud(vertices=points).export(gt_dir / f"{shape_name}.ply")
-
     voxelized = mesh.voxelized(pitch=1.0 / args.resolution).fill()
     voxel_centers = np.asarray(voxelized.points)
     indices = np.floor((voxel_centers + 0.5) * args.resolution).astype(np.int64)
@@ -143,11 +140,19 @@ def prepare_shape(args: argparse.Namespace) -> Path:
         raise ValueError("Voxelization is empty; check the input mesh and resolution.")
 
     vol_handler = importlib.import_module("3dObjectHandlers.vol")
-    from common import get_handler
+    from common import get_handler, load_grid_from_vol, voxel_quads
 
     volume_path = gt_dir / "shape.vol"
     get_handler(".vol").save(vol_handler.VolGrid(grid), volume_path)
     _write_binvox(grid, gt_dir / "shape.binvox")
+    voxel_vertices, voxel_quads_faces = voxel_quads(load_grid_from_vol(volume_path))
+    voxel_faces = np.concatenate(
+        (voxel_quads_faces[:, [0, 1, 2]], voxel_quads_faces[:, [0, 2, 3]]),
+        axis=0,
+    )
+    voxel_surface = trimesh.Trimesh(vertices=voxel_vertices, faces=voxel_faces, process=False)
+    points, _ = trimesh.sample.sample_surface(voxel_surface, args.point_count, seed=args.seed)
+    trimesh.PointCloud(vertices=points).export(gt_dir / f"{shape_name}.ply")
     _run_visibility_normals(
         args.visibility_tool,
         volume_path,
@@ -166,7 +171,8 @@ def prepare_shape(args: argparse.Namespace) -> Path:
             "target_bounds": [-0.5, 0.5],
         },
         "point_sampling": {
-            "method": "trimesh.sample.sample_surface",
+            "source": "shape.vol",
+            "method": "uniform area sampling over exposed voxel faces",
             "count": args.point_count,
             "seed": args.seed,
         },
