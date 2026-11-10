@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 
@@ -14,47 +12,25 @@ from command_runner import run_command
 from python_env import ensure_venv, python_executable
 
 
-REPO_URL = "https://github.com/sbreuils/discreteGeometry-NeuralSurface.git"
-SOURCE_PATH = "NeuralPull-normals"
+REPO_URL = "https://github.com/romain22222/NeuralPull-Normals.git"
 REPO_DIR = THIS_DIR / "NPN"
-SOURCE_FILES = (
-    "run.py",
-    "confs/npull.conf",
-    "models/dataset.py",
-    "models/fields.py",
-    "models/utils.py",
-)
 
 
 def ensure_repo() -> None:
     if REPO_DIR.exists():
-        if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "run.py").is_file():
-            raise RuntimeError(f"{REPO_DIR} exists but is not the standalone NPN repository.")
+        required = (
+            REPO_DIR / ".git",
+            REPO_DIR / "run.py",
+            REPO_DIR / "confs" / "npull.conf",
+            REPO_DIR / "models" / "dataset.py",
+            REPO_DIR / "models" / "fields.py",
+        )
+        if not all(path.exists() for path in required):
+            raise RuntimeError(f"{REPO_DIR} exists but is not a NeuralPull-Normals checkout.")
         return
 
-    with tempfile.TemporaryDirectory(prefix="npn-source-") as temp:
-        upstream = Path(temp) / "upstream"
-        run_command("git", [
-            "clone", "--filter=blob:none", "--no-checkout", "--depth", "1",
-            REPO_URL, upstream,
-        ])
-        run_command("git", ["-C", upstream, "sparse-checkout", "init", "--no-cone"])
-        patterns = [f"/{SOURCE_PATH}/{name}" for name in SOURCE_FILES]
-        run_command("git", ["-C", upstream, "sparse-checkout", "set", "--no-cone", *patterns])
-        run_command("git", ["-C", upstream, "checkout", "--detach"])
-
-        source_root = upstream / SOURCE_PATH
-        REPO_DIR.mkdir(parents=True)
-        for relative in SOURCE_FILES:
-            source = source_root / relative
-            if not source.is_file():
-                raise FileNotFoundError(f"Required NPN source file is missing: {source}")
-            destination = REPO_DIR / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
-
-    run_command("git", ["init", REPO_DIR])
-    print("[info] Created a standalone NPN repository from only the method source files.")
+    run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
+    print(f"[info] Cloned NeuralPull-Normals to {REPO_DIR}")
 
 
 def install_environment() -> None:
@@ -75,7 +51,7 @@ def install_environment() -> None:
         ])
     run_command(python, [
         "-m", "pip", "install", "--disable-pip-version-check",
-        "numpy", "scipy", "trimesh", "tqdm", "pyhocon", "scikit-image",
+        "numpy<1.24", "scipy", "trimesh", "tqdm", "pyhocon", "scikit-image<0.22",
     ])
 
 

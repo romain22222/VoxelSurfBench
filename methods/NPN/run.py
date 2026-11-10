@@ -82,9 +82,9 @@ def main() -> int:
     create_config(repo_dir / "confs" / "npull.conf", config, data_dir, output_root)
 
     check_cuda = (
-        "import torch; "
-        "raise SystemExit('NPN requires a CUDA-capable GPU and CUDA-enabled PyTorch.') "
-        "if not torch.cuda.is_available() else None"
+        "import torch\n"
+        "if not torch.cuda.is_available():\n"
+        "    raise SystemExit('NPN requires a CUDA-capable GPU and CUDA-enabled PyTorch.')"
     )
     run_command(python, ["-c", check_cuda])
     arguments = [

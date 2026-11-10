@@ -17,14 +17,37 @@ from command_runner import run_command
 REPO_URL = "https://github.com/JacquesOlivierLachaud/Reconstruction.git"
 REPO_DIR = THIS_DIR / "Reconstruction"
 BUILD_DIR = REPO_DIR / "build"
+BUILD_JOBS = 2
+RECONSTRUCTION_TARGETS = (
+    "volMarchingCubes",
+    "volIGLDualContouring",
+    "volAntialiasing",
+    "volFineAntialiasing",
+    "volCGALPoissonReconstruction",
+    "volShroud",
+    "volRegularization",
+)
 
 
 def ensure_repo() -> None:
     if REPO_DIR.exists():
         if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "CMakeLists.txt").is_file():
             raise RuntimeError(f"{REPO_DIR} exists but is not a Reconstruction clone.")
+    else:
+        run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
+    patch_missing_source()
+
+
+def patch_missing_source() -> None:
+    source_file = REPO_DIR / "objCompareSpatial.cpp"
+    if source_file.is_file():
         return
-    run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
+    # Current upstream CMake lists this optional tool, but its source is absent.
+    cmake_file = REPO_DIR / "CMakeLists.txt"
+    source = cmake_file.read_text(encoding="utf-8")
+    missing_entry = "     objCompareSpatial\n"
+    if missing_entry in source:
+        cmake_file.write_text(source.replace(missing_entry, "", 1), encoding="utf-8")
 
 
 def wsl_path(path: Path) -> str:
@@ -38,13 +61,22 @@ def build_in_wsl() -> None:
     if not shutil.which("wsl"):
         raise FileNotFoundError("WSL2 is required to build Reconstruction on Windows.")
     source = shlex.quote(wsl_path(REPO_DIR))
-    build = shlex.quote(wsl_path(BUILD_DIR))
+    build = '"$HOME/.cache/voxelsurfbench/reconstruction"'
+    output = shlex.quote(wsl_path(BUILD_DIR))
+    targets = " ".join(RECONSTRUCTION_TARGETS)
+    copy_targets = "; ".join(
+        f"install -m 755 {build}/{target} {output}/{target}"
+        for target in RECONSTRUCTION_TARGETS
+    )
     script = (
         "set -e; "
         "if ! command -v cmake >/dev/null || ! command -v g++ >/dev/null || ! command -v make >/dev/null; then "
         "sudo apt-get update && sudo apt-get install -y cmake g++ make; fi; "
+        # Keep the dependency tree on WSL's native filesystem rather than the slow /mnt/c mount.
         f"cmake -S {source} -B {build} -G 'Unix Makefiles'; "
-        f"cmake --build {build} --parallel"
+        f"cmake --build {build} --parallel {BUILD_JOBS} --target {targets}; "
+        f"mkdir -p {output}; "
+        + copy_targets
     )
     run_command("wsl", ["bash", "-lc", script])
 
@@ -53,7 +85,9 @@ def build_native() -> None:
     if not shutil.which("cmake") or not shutil.which("g++") or not shutil.which("make"):
         raise FileNotFoundError("CMake, g++, and make are required. Install them before building Reconstruction.")
     run_command("cmake", ["-S", REPO_DIR, "-B", BUILD_DIR, "-G", "Unix Makefiles"])
-    run_command("cmake", ["--build", BUILD_DIR, "--parallel"])
+    run_command("cmake", [
+        "--build", BUILD_DIR, "--parallel", str(BUILD_JOBS), "--target", *RECONSTRUCTION_TARGETS,
+    ])
 
 
 def main() -> int:

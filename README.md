@@ -43,7 +43,9 @@ All experiment data belongs below `experiments/`, which is ignored by git. `run_
 ## Bundled reconstruction methods
 
 The registry includes the methods from the Reconstruction and NDC repositories, plus NeuralPull without normals (NP)
-and with visibility normals (NPN).
+and with visibility normals (NPN). NPN is the [NeuralPull-Normals](https://github.com/romain22222/NeuralPull-Normals)
+variant of the official [PyTorch NeuralPull implementation](https://github.com/mabaorui/NeuralPull-Pytorch); it adds
+an orientation-invariant loss on DGtal visibility normals.
 Prepare a method before running it:
 
 ```
@@ -55,9 +57,26 @@ python methods/NPN/build.py
 Python methods share the project's root `.venv`, created by the first Python build. Reconstruction builds in WSL2 on
 Windows. NDC compiles its extension and downloads the pretrained weights; it uses CPU PyTorch by default, or CUDA with
 `--torch-backend cuda`. NP and NPN share the same CUDA-enabled build and require a CUDA-capable GPU; NPN additionally
-uses visibility normals. The NPN build creates a small standalone repository containing only its source files, using a
-blob-filtered sparse checkout so unrelated DGNS assets and meshes are not fetched. NumGrad-Pull has a reserved
-directory under `methods/` for its later integration. Source checkouts and virtual environments are ignored by Git.
+uses DGtal visibility normals, with a default normal-loss weight of `0.1`. The NPN build clones the dedicated
+NeuralPull-Normals repository. NumGrad-Pull has a reserved directory under `methods/` for its later integration.
+Source checkouts and virtual environments are ignored by Git.
+
+## Preparing a shape
+
+`dataPreparation/prepare_shape.py` builds the benchmark inputs from an original triangle mesh (not an existing
+voxelization): it normalizes and samples the mesh, creates `.vol` and `.binvox` grids at the requested resolution, and
+computes DGtal visibility normals. For example, on Windows with the visibility tool available in WSL:
+
+```
+python dataPreparation/prepare_shape.py \
+    --mesh "\\wsl.localhost\Ubuntu\home\romain22222\VolGallery\Octaflower\octa-flower17k.stl" \
+    --shape-dir experiments/shapes/octaflower \
+    --resolution 64 \
+    --visibility-tool /home/romain22222/visibilityLattices/cmake-build-release/visibilityLattices
+```
+
+The resulting `gt/` folder contains the normalized reference mesh, sampled point cloud, 64³ volume and BINVOX inputs,
+visibility normals, the original source mesh and a preparation manifest.
 
 ## Registering a method
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -21,12 +22,24 @@ WEIGHTS_URL = "https://drive.google.com/file/d/1rLog9aX3gcKYF3FCHeL4BHDBHhXoPH3V
 METHODS = ("ndc", "ndcx", "undc")
 
 
+def patch_windows_dataloader() -> None:
+    if os.name != "nt":
+        return
+    main_script = REPO_DIR / "main.py"
+    source = main_script.read_text(encoding="utf-8")
+    workers = "torch.utils.data.DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers="
+    if workers + "1)" not in source and workers + "0)" not in source:
+        raise RuntimeError(f"Could not find the expected test DataLoader in {main_script}")
+    main_script.write_text(source.replace(workers + "1)", workers + "0)"), encoding="utf-8")
+
+
 def ensure_repo() -> None:
     if REPO_DIR.exists():
         if not (REPO_DIR / ".git").exists() or not (REPO_DIR / "main.py").is_file():
             raise RuntimeError(f"{REPO_DIR} exists but is not an NDC clone.")
-        return
-    run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
+    else:
+        run_command("git", ["clone", "--depth", "1", REPO_URL, REPO_DIR])
+    patch_windows_dataloader()
 
 
 def install_environment(torch_backend: str) -> None:
@@ -50,7 +63,7 @@ def install_environment(torch_backend: str) -> None:
         run_command(python, arguments)
     run_command(python, [
         "-m", "pip", "install", "--disable-pip-version-check",
-        "numpy", "h5py", "scipy", "scikit-learn", "trimesh", "cython", "py7zr", "gdown",
+        "numpy<1.24", "h5py", "scipy", "scikit-learn", "trimesh", "cython", "py7zr", "gdown",
     ])
     run_command(python, ["setup.py", "build_ext", "--inplace"], cwd=REPO_DIR)
 
@@ -62,7 +75,7 @@ def download_and_extract_weights() -> None:
         download_script = f"""
 import gdown
 
-ok = gdown.download(url={WEIGHTS_URL!r}, output={str(archive)!r}, quiet=False, fuzzy=True)
+ok = gdown.download(url={WEIGHTS_URL!r}, output={str(archive)!r}, quiet=False)
 if not ok:
     raise RuntimeError("Google Drive download failed")
 """
