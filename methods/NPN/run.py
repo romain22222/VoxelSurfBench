@@ -6,6 +6,9 @@ import shutil
 import sys
 from pathlib import Path
 
+import numpy as np
+import trimesh
+
 
 THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(THIS_DIR.parent))
@@ -19,11 +22,47 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo-dir", type=Path, required=True)
     parser.add_argument("--points", type=Path, required=True)
     parser.add_argument("--visnormals", type=Path)
+    parser.add_argument("--grid-dim", type=int)
     parser.add_argument("--shape-name", required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--output-mesh", type=Path, required=True)
     parser.add_argument("--gpu", type=int, default=0)
     return parser.parse_args()
+
+
+def prepare_visibility_normals(source: Path, destination: Path, grid_dim: int) -> None:
+    raw = np.loadtxt(source, dtype=np.float64)
+    if raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+    if not np.isfinite(raw).all():
+        raise ValueError(f"Visibility normals contain non-finite values: {source}")
+
+    if raw.shape[1] >= 6:
+        positions = raw[:, :3][:, [2, 1, 0]]
+        # DGtal's lattice coordinates are half-voxel centered and use the reversed X/Z axis order.
+        positions = (positions - 0.5) / float(grid_dim) - 0.5
+        normals = raw[:, 3:6][:, [2, 1, 0]]
+        converted = np.column_stack((positions, normals))
+    elif raw.shape[1] == 3:
+        converted = raw[:, [2, 1, 0]]
+    else:
+        raise ValueError(f"Expected visibility normals with 3 or 6 columns, got {raw.shape}: {source}")
+
+    np.savetxt(destination, converted, fmt="%.9g")
+
+
+def restore_mesh_frame(mesh_path: Path, processed_data: Path) -> None:
+    with np.load(processed_data) as data:
+        center = np.asarray(data["normalization_center"], dtype=np.float64)
+        scale = float(data["normalization_scale"])
+    if center.shape != (3,) or not np.isfinite(center).all() or not np.isfinite(scale) or scale <= 0:
+        raise ValueError(f"Invalid NPN input normalization metadata in {processed_data}")
+
+    mesh = trimesh.load(mesh_path, force="mesh", process=False)
+    if not isinstance(mesh, trimesh.Trimesh) or len(mesh.vertices) == 0 or len(mesh.faces) == 0:
+        raise ValueError(f"NPN output is not a non-empty triangle mesh: {mesh_path}")
+    mesh.vertices = np.asarray(mesh.vertices, dtype=np.float64) * scale + center
+    mesh.export(mesh_path)
 
 
 def create_config(template: Path, destination: Path, data_dir: Path, output_root: Path) -> None:
@@ -66,13 +105,15 @@ def main() -> int:
         raise FileNotFoundError(f"NPN point cloud not found: {points}")
     if visnormals is not None and not visnormals.is_file():
         raise FileNotFoundError(f"NPN visibility normals not found: {visnormals}")
+    if visnormals is not None and (args.grid_dim is None or args.grid_dim < 1):
+        raise ValueError("--grid-dim must be positive when visibility normals are supplied.")
 
     data_dir = work_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(points, data_dir / f"{args.shape_name}.ply")
     visnormals_data = data_dir / f"{args.shape_name}_visnormals.xyz"
     if visnormals is not None:
-        shutil.copy2(visnormals, visnormals_data)
+        prepare_visibility_normals(visnormals, visnormals_data, int(args.grid_dim))
     elif visnormals_data.exists():
         visnormals_data.unlink()
 
@@ -102,6 +143,7 @@ def main() -> int:
         raise FileNotFoundError(f"NPN did not produce a mesh in {output_dir}")
     output_mesh.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(candidates[-1], output_mesh)
+    restore_mesh_frame(output_mesh, data_dir / f"{args.shape_name}.npz")
     return 0
 
 

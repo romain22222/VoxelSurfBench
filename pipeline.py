@@ -14,7 +14,7 @@ Registry entry (methods.json), placeholders `$NAME` are expanded in `path`, `cwd
     }
 
 Placeholders: ROOT, SHAPE_DIR, SHAPE_NAME, GT_DIR, METHOD, METHOD_DIR, WORKDIR (temporary), OUTPUT_MESH,
-VOL, BINVOX, VISNORMS, GT_MESH, SOURCE_JSON, CAMERA_JSON.
+VOL, BINVOX, VISNORMS, GT_MESH, SOURCE_JSON, CAMERA_JSON, GRID_DIM.
 
 Output layout: <shape>/<method>/{results.json, aligned.<ext>, base.<ext>, method.log}.
 """
@@ -29,16 +29,21 @@ import time
 from pathlib import Path
 from typing import Any
 
-from alignment import align_mesh
+import numpy as np
+import trimesh
+
+from alignment import align_mesh, recenter_mesh_to_reference
 from common import (
     ALIGNED_STEM,
     BASE_STEM,
+    GtInputs,
     LOG_NAME,
     METHODS_FILE,
     RESULTS_NAME,
     ROOT,
     get_handler,
     grid_dim_from_vol,
+    load_grid_from_vol,
     load_gt_inputs,
     load_mesh,
     load_registry,
@@ -46,6 +51,7 @@ from common import (
     method_dir,
     read_json,
     write_json,
+    voxel_quads,
 )
 from methods.command_runner import format_command, run_command
 from metrics import voxel_scale_metrics
@@ -116,6 +122,47 @@ def _find_output(directory: Path, stem: str) -> Path | None:
     return None
 
 
+def _volume_surface_mesh(vol_path: Path) -> trimesh.Trimesh:
+    grid = load_grid_from_vol(vol_path)
+    vertices, quads = voxel_quads(grid)
+    faces = np.concatenate(
+        (quads[:, [0, 1, 2]], quads[:, [0, 2, 3]]),
+        axis=0,
+    )
+    return trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+
+
+def _align_and_measure(
+    *,
+    inputs: GtInputs,
+    spec: dict[str, Any],
+    base_path: Path,
+    aligned_path: Path,
+    grid_dim: int,
+    surface_samples: int,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    handler = get_handler(base_path)
+    pred = handler.load(base_path)
+    if not hasattr(pred, "faces"):
+        raise ValueError("Method output is a point cloud; a triangle mesh is required")
+
+    aligned, alignment = align_mesh(pred, spec.get("alignment"), grid_dim)
+    aligned, recentering = recenter_mesh_to_reference(
+        aligned,
+        _volume_surface_mesh(inputs.vol),
+        grid_dim,
+    )
+    alignment["volume_recenter"] = recentering
+    handler.save(aligned, aligned_path)
+    metrics = voxel_scale_metrics(
+        aligned,
+        load_mesh(inputs.gt_mesh),
+        grid_dim,
+        n_samples=surface_samples,
+    )
+    return alignment, metrics
+
+
 def is_done(shape_dir: Path, method: str) -> bool:
     mdir = method_dir(shape_dir, method)
     results = mdir / RESULTS_NAME
@@ -148,6 +195,7 @@ def execute_registered_method(
     spec = registry[method]
     output_ext = "." + str(spec.get("output_ext", "obj")).lstrip(".").lower()
     handler = get_handler(output_ext)
+    grid_dim = grid_dim_from_vol(inputs.vol)
 
     mdir = method_dir(inputs.shape_dir, method)
     base_path = mdir / f"{BASE_STEM}{output_ext}"
@@ -172,6 +220,7 @@ def execute_registered_method(
             "GT_MESH": str(inputs.gt_mesh),
             "SOURCE_JSON": str(inputs.source_json),
             "CAMERA_JSON": str(inputs.camera_json),
+            "GRID_DIM": str(grid_dim),
         }
         steps = spec["steps"] if "steps" in spec else [spec]
         plan = [_command_from_step(step, context, python_executable) for step in steps]
@@ -222,14 +271,15 @@ def execute_registered_method(
                 else:
                     handler.save(get_handler(collected).load(collected), base_path)
 
-            gt_mesh = load_mesh(inputs.gt_mesh)
-            pred = handler.load(base_path)
-            if not hasattr(pred, "faces"):
-                raise ValueError("Method output is a point cloud; a triangle mesh is required")
-            grid_dim = grid_dim_from_vol(inputs.vol)
-            aligned, alignment = align_mesh(pred, spec.get("alignment"), grid_dim)
-            handler.save(aligned, aligned_path)
-            run_info["metrics"] = voxel_scale_metrics(aligned, gt_mesh, grid_dim, n_samples=surface_samples)
+            alignment, metrics = _align_and_measure(
+                inputs=inputs,
+                spec=spec,
+                base_path=base_path,
+                aligned_path=aligned_path,
+                grid_dim=grid_dim,
+                surface_samples=surface_samples,
+            )
+            run_info["metrics"] = metrics
             run_info["alignment"] = alignment
             run_info["status"] = "success"
         except Exception as exc:
@@ -246,6 +296,55 @@ def execute_registered_method(
         return run_info
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def recenter_existing_method(
+    shape_dir: Path,
+    method: str,
+    *,
+    methods_file: Path = METHODS_FILE,
+    surface_samples: int = 100000,
+) -> dict[str, Any]:
+    """Rebuild aligned outputs and metrics from an existing raw mesh without rerunning the method."""
+    inputs = load_gt_inputs(shape_dir)
+    registry = load_registry(methods_file)
+    if method not in registry:
+        raise KeyError(f"Unknown method '{method}' in {methods_file}")
+
+    mdir = method_dir(inputs.shape_dir, method)
+    base_path = _find_output(mdir, BASE_STEM)
+    if base_path is None:
+        raise FileNotFoundError(f"No {BASE_STEM}.<ext> mesh found for {method} in {mdir}")
+    aligned_path = mdir / f"{ALIGNED_STEM}{base_path.suffix.lower()}"
+    grid_dim = grid_dim_from_vol(inputs.vol)
+    alignment, metrics = _align_and_measure(
+        inputs=inputs,
+        spec=registry[method],
+        base_path=base_path,
+        aligned_path=aligned_path,
+        grid_dim=grid_dim,
+        surface_samples=surface_samples,
+    )
+
+    results_path = mdir / RESULTS_NAME
+    results = read_json(results_path) if results_path.is_file() else {}
+    results.update(
+        {
+            "shape": inputs.name,
+            "method": method,
+            "status": "success",
+            "metrics": metrics,
+            "alignment": alignment,
+        }
+    )
+    files = dict(results.get("files") or {})
+    files.update({"base": base_path.name, "aligned": aligned_path.name})
+    log_path = mdir / LOG_NAME
+    if log_path.is_file():
+        files["log"] = log_path.name
+    results["files"] = files
+    write_json(results_path, results)
+    return results
 
 
 def run_if_needed(

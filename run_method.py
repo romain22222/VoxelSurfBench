@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from common import METHODS_FILE, list_shape_dirs, load_registry
-from pipeline import run_if_needed
+from pipeline import recenter_existing_method, run_if_needed
 
 
 def parse_args() -> argparse.Namespace:
@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--python", type=str, default=None, help="Python executable forced for Python-based methods.")
     parser.add_argument("--surface-samples", type=int, default=100000)
     parser.add_argument("--overwrite", action="store_true", help="Re-run shapes even if their results already exist.")
+    parser.add_argument(
+        "--recenter-only",
+        action="store_true",
+        help="Recompute volume-based recentering and metrics from existing base meshes.",
+    )
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Resolve the commands without running them.")
     return parser.parse_args()
@@ -34,6 +39,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.recenter_only and (args.overwrite or args.dry_run):
+        raise SystemExit("--recenter-only cannot be combined with --overwrite or --dry-run.")
     if args.method not in load_registry(args.methods_file):
         raise SystemExit(f"Unknown method '{args.method}' in {args.methods_file} (see add_method.py).")
 
@@ -72,15 +79,28 @@ def main() -> int:
     statuses: dict[str, str] = {}
     for shape_dir in shape_dirs:
         print(f"[run] {args.method} / {shape_dir.name}")
-        statuses[shape_dir.name] = run_if_needed(
-            shape_dir,
-            args.method,
-            methods_file=args.methods_file,
-            overwrite=args.overwrite,
-            dry_run=args.dry_run,
-            surface_samples=args.surface_samples,
-            python_executable=args.python,
-        )
+        if args.recenter_only:
+            try:
+                recenter_existing_method(
+                    shape_dir,
+                    args.method,
+                    methods_file=args.methods_file,
+                    surface_samples=args.surface_samples,
+                )
+                statuses[shape_dir.name] = "success"
+            except Exception as exc:
+                print(f"[error] {shape_dir.name}/{args.method}: {exc}")
+                statuses[shape_dir.name] = "failed"
+        else:
+            statuses[shape_dir.name] = run_if_needed(
+                shape_dir,
+                args.method,
+                methods_file=args.methods_file,
+                overwrite=args.overwrite,
+                dry_run=args.dry_run,
+                surface_samples=args.surface_samples,
+                python_executable=args.python,
+            )
         print(f"[{statuses[shape_dir.name]}] {shape_dir.name}")
         if statuses[shape_dir.name] == "failed" and args.stop_on_error:
             break

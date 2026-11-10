@@ -145,6 +145,7 @@
       "--repo-dir", "$ROOT/methods/NPN/NPN",
       "--points", "$GT_DIR/$SHAPE_NAME.ply",
       "--visnormals", "$VISNORMS",
+      "--grid-dim", "$GRID_DIM",
       "--shape-name", "$SHAPE_NAME",
       "--work-dir", "$WORKDIR/npn",
       "--output-mesh", "$OUTPUT_MESH"

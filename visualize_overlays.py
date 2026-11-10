@@ -32,10 +32,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--camera-json", type=Path, default=None, help="Default: <shape>/gt/camera.json")
     parser.add_argument("--alpha", type=float, default=0.38, help="Transparency of the method meshes.")
     parser.add_argument("--gt-alpha", type=float, default=0.8, help="GT opacity (higher = less transparent).")
-    parser.add_argument("--show-all", action="store_true", help="Enable every mesh at startup (default: GT only).")
+    parser.add_argument(
+        "--show-all",
+        action="store_true",
+        help="Enable method meshes, volume and sampled points at startup (default: GT only).",
+    )
     parser.add_argument("--raw", action="store_true", help="Use base.<ext> (raw method output) instead of aligned.<ext>.")
     parser.add_argument("--no-vol", action="store_true", help="Do not add the .vol voxelization.")
     parser.add_argument("--no-points", action="store_true", help="Hide the sampled point cloud <shape>.ply.")
+    parser.add_argument(
+        "--show-points",
+        action="store_true",
+        help="Show the sampled point cloud at startup (also enabled by --show-all).",
+    )
     return parser.parse_args()
 
 
@@ -77,7 +86,11 @@ def main() -> int:
             ps,
             "sampled_points",
             points,
-            {"color": (0.10, 0.65, 0.28), "point_radius": 0.002, "enabled": True},
+            {
+                "color": (0.10, 0.65, 0.28),
+                "point_radius": 0.002,
+                "enabled": args.show_points or args.show_all,
+            },
         )
 
     meshes = find_method_meshes(inputs.shape_dir, wanted, BASE_STEM if args.raw else ALIGNED_STEM)

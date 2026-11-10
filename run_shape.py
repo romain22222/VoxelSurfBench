@@ -2,6 +2,7 @@
 
     python run_shape.py --shape-dir experiments/shapes/barrel_stove
     python run_shape.py --shape-dir experiments/shapes/barrel_stove --methods mc,dc --overwrite
+    python run_shape.py --shape-dir experiments/shapes/barrel_stove --recenter-only
 """
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ import sys
 from pathlib import Path
 
 from common import METHODS_FILE, load_registry
-from pipeline import run_if_needed
+from pipeline import recenter_existing_method, run_if_needed
 
 
 def parse_args() -> argparse.Namespace:
@@ -21,6 +22,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--python", type=str, default=None, help="Python executable forced for Python-based methods.")
     parser.add_argument("--surface-samples", type=int, default=100000)
     parser.add_argument("--overwrite", action="store_true", help="Re-run methods even if their results already exist.")
+    parser.add_argument(
+        "--recenter-only",
+        action="store_true",
+        help="Recompute volume-based recentering and metrics from existing base meshes.",
+    )
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--dry-run", action="store_true", help="Resolve the commands without running them.")
     return parser.parse_args()
@@ -28,6 +34,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.recenter_only and (args.overwrite or args.dry_run):
+        raise SystemExit("--recenter-only cannot be combined with --overwrite or --dry-run.")
     registry = load_registry(args.methods_file)
     if args.methods.strip().lower() == "all":
         methods = list(registry)
@@ -43,15 +51,28 @@ def main() -> int:
     statuses: dict[str, str] = {}
     for method in methods:
         print(f"[run] {shape_dir.name} / {method}")
-        statuses[method] = run_if_needed(
-            shape_dir,
-            method,
-            methods_file=args.methods_file,
-            overwrite=args.overwrite,
-            dry_run=args.dry_run,
-            surface_samples=args.surface_samples,
-            python_executable=args.python,
-        )
+        if args.recenter_only:
+            try:
+                recenter_existing_method(
+                    shape_dir,
+                    method,
+                    methods_file=args.methods_file,
+                    surface_samples=args.surface_samples,
+                )
+                statuses[method] = "success"
+            except Exception as exc:
+                print(f"[error] {shape_dir.name}/{method}: {exc}")
+                statuses[method] = "failed"
+        else:
+            statuses[method] = run_if_needed(
+                shape_dir,
+                method,
+                methods_file=args.methods_file,
+                overwrite=args.overwrite,
+                dry_run=args.dry_run,
+                surface_samples=args.surface_samples,
+                python_executable=args.python,
+            )
         print(f"[{statuses[method]}] {method}")
         if statuses[method] == "failed" and args.stop_on_error:
             break

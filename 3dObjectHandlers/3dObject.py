@@ -14,7 +14,7 @@ Geometry = Any
 
 # Visual parameters understood by `register_polyscope`.
 DEFAULT_STYLE: dict[str, Any] = {
-    "enabled": True,
+    "enabled": False,
     "color": (0.55, 0.55, 0.55),
     "transparency": 1.0,  # 1 = opaque
     "smooth_shade": False,

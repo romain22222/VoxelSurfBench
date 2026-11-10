@@ -21,8 +21,10 @@ experiments/
 
 `gt/` contains `shape.vol`, `shape.binvox`, `visnormals.xyz`, `source.json`, the point cloud `<shape>.ply` sampled
 from the exposed voxel faces of `shape.vol`, `gt.<ext>` and (after camera setup) `camera.json`.
-`base.<ext>` is the raw method output, `aligned.<ext>` the same mesh in the GT frame ([-0.5, 0.5]^3),
-`results.json` the metrics (in voxel units) and run information.
+`base.<ext>` is the raw method output; `aligned.<ext>` is mapped to the input-volume frame and recentered against the
+exposed surface of `shape.vol` (without fitting to `gt.ply`). The correction is a bounded, translation-only symmetric
+surface-Chamfer fit (±4 voxels); its vector and fit distances are recorded in `results.json`, which also stores metrics
+in voxel units and run information.
 
 ## Scripts
 
@@ -30,12 +32,15 @@ from the exposed voxel faces of `shape.vol`, `gt.<ext>` and (after camera setup)
 |---|---|
 | `add_method.py` | register a method in `methods.json` (command line, or interactive when run without parameters / with `-i`) |
 | `run_shape.py --shape-dir S [--methods a,b]` | all methods on one shape |
+| `run_shape.py --shape-dir S --recenter-only` | recompute volume-based recentering/metrics from existing `base.*` meshes |
 | `run_method.py --method M [--shapes-root R]` | one method on all shapes |
+| `run_method.py --method M --shapes-root R --recenter-only` | recenter existing outputs for one method across shapes |
 | `adjust_camera.py --shape-dir S` | Polyscope with GT + `.vol`; "Save camera" writes `gt/camera.json` (view, ground plane, colors, materials...) |
-| `visualize_overlays.py --shape-dir S` | Polyscope overlay of GT, `.vol`, sampled points `gt/shape.ply` and every method (`--raw` for `base.<ext>`) |
+| `visualize_overlays.py --shape-dir S` | Polyscope overlay (GT only at startup; use `--show-all` or `--show-points`; `--raw` selects `base.<ext>`) |
 | `recompute_metrics.py --measure all` | recalculate selected C++ metrics on existing successful runs |
 
-Common options of the runners: `--overwrite`, `--stop-on-error`, `--dry-run`, `--python`, `--surface-samples`.
+Common options of the runners: `--overwrite`, `--recenter-only`, `--stop-on-error`, `--dry-run`, `--python`,
+`--surface-samples`.
 All experiment data belongs below `experiments/`, which is ignored by git. `run_method.py` and
 `recompute_metrics.py` search it recursively; use `--shapes-root experiments/shapes_128` to restrict the set.
 `methods.json` contains the bundled methods; add more with `add_method.py` before using the runners.
@@ -46,6 +51,8 @@ The registry includes the methods from the Reconstruction and NDC repositories, 
 and with visibility normals (NPN). NPN is the [NeuralPull-Normals](https://github.com/romain22222/NeuralPull-Normals)
 variant of the official [PyTorch NeuralPull implementation](https://github.com/mabaorui/NeuralPull-Pytorch); it adds
 an orientation-invariant loss on DGtal visibility normals.
+For NPN, the six-column DGtal file is transformed into the point-cloud frame and its position/vector pairs are used
+together; the method's temporary point-cloud normalization is also inverted on the output mesh.
 Prepare a method before running it:
 
 ```
