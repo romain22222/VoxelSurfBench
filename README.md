@@ -83,6 +83,12 @@ python dataPreparation/prepare_shape.py \
     --visibility-tool /home/romain22222/visibilityLattices/cmake-build-release/visibilityLattices
 ```
 
+Pass `--rotation X Y Z` for extrinsic XYZ Euler angles in degrees, or `--random-rotation` to sample each angle from an
+equal mixture of Gaussians centered at 25° and 65° (σ = 5°; 3σ reaches 10°–40° or 50°–80°). The distribution is not
+truncated, so angles outside those ranges remain possible but unlikely. Random rotations are reproducible with
+`--seed`. Rotation is applied before voxelization; the rotated bounds are normalized to fit the target cube, and the
+applied angles and distribution are recorded in the manifest.
+
 The resulting `gt/` folder contains the normalized reference mesh, voxel-surface point cloud, 64³ volume and BINVOX
 inputs, visibility normals, the original source mesh and a preparation manifest.
 

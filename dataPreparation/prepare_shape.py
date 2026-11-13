@@ -87,11 +87,15 @@ def _run_visibility_normals(
         raise ValueError(f"Invalid visibility-normal data in {normals_path}: {normals.shape}")
 
 
-def _normalize_mesh(mesh_path: Path) -> tuple[trimesh.Trimesh, np.ndarray, float]:
+def _normalize_mesh(
+    mesh_path: Path,
+    rotation_matrix: np.ndarray,
+) -> tuple[trimesh.Trimesh, np.ndarray, float]:
     mesh = trimesh.load(mesh_path, force="mesh", process=False)
     if not isinstance(mesh, trimesh.Trimesh) or len(mesh.vertices) == 0 or len(mesh.faces) == 0:
         raise ValueError(f"Expected a triangle mesh with vertices and faces: {mesh_path}")
 
+    mesh.apply_transform(rotation_matrix)
     bounds = np.asarray(mesh.bounds, dtype=np.float64)
     center = bounds.mean(axis=0)
     scale = float(np.ptp(bounds, axis=0).max())
@@ -100,6 +104,49 @@ def _normalize_mesh(mesh_path: Path) -> tuple[trimesh.Trimesh, np.ndarray, float
     mesh.apply_translation(-center)
     mesh.apply_scale(1.0 / scale)
     return mesh, center, scale
+
+
+def _sample_random_euler_xyz(rng: np.random.Generator) -> np.ndarray:
+    intervals = np.array([[10.0, 40.0], [50.0, 80.0]])
+    interval_indices = rng.integers(0, len(intervals), size=3)
+    angles = np.empty(3, dtype=np.float64)
+    for axis, interval_index in enumerate(interval_indices):
+        lower, upper = intervals[interval_index]
+        mean = (lower + upper) / 2
+        sigma = (upper - lower) / 6
+        angles[axis] = rng.normal(mean, sigma)
+    return angles
+
+
+def _rotation_matrix(args: argparse.Namespace) -> tuple[np.ndarray, dict[str, object]]:
+    if args.rotation is not None:
+        angles = np.deg2rad(args.rotation)
+        matrix = trimesh.transformations.euler_matrix(*angles, axes="sxyz")
+        rotation = {
+            "mode": "specified",
+            "euler_xyz_degrees": args.rotation,
+        }
+    elif args.random_rotation:
+        rng = np.random.default_rng(args.seed)
+        euler_xyz = _sample_random_euler_xyz(rng)
+        matrix = trimesh.transformations.euler_matrix(*np.deg2rad(euler_xyz), axes="sxyz")
+        rotation = {
+            "mode": "random_gaussian_euler_xyz",
+            "seed": args.seed,
+            "euler_xyz_degrees": euler_xyz.tolist(),
+            "distribution": {
+                "intervals_degrees": [[10, 40], [50, 80]],
+                "component_means_degrees": [25, 65],
+                "sigma_degrees": 5,
+                "truncated": False,
+            },
+        }
+    else:
+        matrix = np.eye(4)
+        rotation = {"mode": "none"}
+
+    rotation["matrix"] = matrix[:3, :3].tolist()
+    return matrix, rotation
 
 
 def prepare_shape(args: argparse.Namespace) -> Path:
@@ -123,7 +170,8 @@ def prepare_shape(args: argparse.Namespace) -> Path:
             + "\n".join(str(path) for path in existing)
         )
 
-    mesh, center, scale = _normalize_mesh(mesh_path)
+    rotation_matrix, rotation = _rotation_matrix(args)
+    mesh, center, scale = _normalize_mesh(mesh_path, rotation_matrix)
     gt_dir.mkdir(parents=True, exist_ok=True)
     source_path = gt_dir / "source.stl"
     if mesh_path != source_path:
@@ -170,6 +218,7 @@ def prepare_shape(args: argparse.Namespace) -> Path:
             "scale": scale,
             "target_bounds": [-0.5, 0.5],
         },
+        "rotation": rotation,
         "point_sampling": {
             "source": "shape.vol",
             "method": "uniform area sampling over exposed voxel faces",
@@ -199,6 +248,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resolution", type=int, default=64)
     parser.add_argument("--point-count", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=0)
+    rotation_group = parser.add_mutually_exclusive_group()
+    rotation_group.add_argument(
+        "--rotation",
+        nargs=3,
+        type=float,
+        metavar=("X", "Y", "Z"),
+        help="Apply extrinsic XYZ Euler angles in degrees before normalization and voxelization.",
+    )
+    rotation_group.add_argument(
+        "--random-rotation",
+        action="store_true",
+        help="Sample XYZ angles from Gaussian peaks at 25/65 degrees; --seed makes it reproducible.",
+    )
     parser.add_argument("--visibility-tool", required=True, help="DGtal visibilityLattices executable.")
     parser.add_argument("--gridstep", type=float, default=1.0)
     parser.add_argument("--radius", type=int, default=5)
@@ -212,6 +274,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--gridstep must be positive.")
     if args.radius < 1:
         parser.error("--radius must be positive.")
+    if args.rotation is not None and not np.isfinite(args.rotation).all():
+        parser.error("--rotation angles must be finite.")
     return args
 
 
