@@ -4,8 +4,6 @@ import argparse
 import hashlib
 import importlib
 import json
-import os
-import shlex
 import sys
 from pathlib import Path
 
@@ -18,12 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from methods.command_runner import run_command
 
-
-def _wsl_path(path: Path) -> str:
-    value = str(path.resolve()).replace("\\", "/")
-    if len(value) >= 2 and value[1] == ":":
-        return f"/mnt/{value[0].lower()}{value[2:]}"
-    return value
+VISIBILITY_RUNNER = ROOT / "dataPreparation" / "visibilityLattices" / "run.py"
 
 
 def _write_binvox(grid: np.ndarray, path: Path) -> None:
@@ -54,34 +47,28 @@ def _write_binvox(grid: np.ndarray, path: Path) -> None:
 
 
 def _run_visibility_normals(
-    visibility_tool: str,
     volume_path: Path,
     normals_path: Path,
     gridstep: float,
     radius: int,
 ) -> None:
-    arguments = [
-        visibility_tool,
-        "-i",
-        _wsl_path(volume_path) if os.name == "nt" else str(volume_path),
-        "-g",
-        str(gridstep),
-        "-r",
-        str(radius),
-        "--noInterface",
-        "--saveNormals",
-        _wsl_path(normals_path) if os.name == "nt" else str(normals_path),
-    ]
-    if os.name == "nt":
-        if not visibility_tool.startswith("/"):
-            arguments[0] = _wsl_path(Path(visibility_tool))
-        command = shlex.join(arguments)
-        run_command("wsl", ["bash", "-lc", command])
-    else:
-        run_command(arguments[0], arguments[1:])
+    run_command(
+        sys.executable,
+        [
+            VISIBILITY_RUNNER,
+            "--vol",
+            volume_path.resolve(),
+            "--output",
+            normals_path.resolve(),
+            "--gridstep",
+            str(gridstep),
+            "--radius",
+            str(radius),
+        ],
+    )
 
     if not normals_path.is_file() or normals_path.stat().st_size == 0:
-        raise FileNotFoundError(f"DGtal did not produce visibility normals: {normals_path}")
+        raise FileNotFoundError(f"visibilityLattices did not produce visibility normals: {normals_path}")
     normals = np.loadtxt(normals_path)
     if normals.ndim != 2 or normals.shape[1] not in (3, 6) or not np.isfinite(normals).all():
         raise ValueError(f"Invalid visibility-normal data in {normals_path}: {normals.shape}")
@@ -202,7 +189,6 @@ def prepare_shape(args: argparse.Namespace) -> Path:
     points, _ = trimesh.sample.sample_surface(voxel_surface, args.point_count, seed=args.seed)
     trimesh.PointCloud(vertices=points).export(gt_dir / f"{shape_name}.ply")
     _run_visibility_normals(
-        args.visibility_tool,
         volume_path,
         gt_dir / "visnormals.xyz",
         args.gridstep,
@@ -261,7 +247,6 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Sample XYZ angles from Gaussian peaks at 25/65 degrees; --seed makes it reproducible.",
     )
-    parser.add_argument("--visibility-tool", required=True, help="DGtal visibilityLattices executable.")
     parser.add_argument("--gridstep", type=float, default=1.0)
     parser.add_argument("--radius", type=int, default=5)
     parser.add_argument("--overwrite", action="store_true")

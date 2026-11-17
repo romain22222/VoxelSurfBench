@@ -56,7 +56,7 @@ together; the method's temporary point-cloud normalization is also inverted on t
 Prepare a method before running it:
 
 ```
-python methods/Reproduction/build.py
+python methods/Reconstruction/build.py
 python methods/NDC/build.py
 python methods/NPN/build.py
 ```
@@ -72,15 +72,15 @@ Source checkouts and virtual environments are ignored by Git.
 
 `dataPreparation/prepare_shape.py` builds the benchmark inputs from an original triangle mesh (not an existing
 voxelization): it normalizes and voxelizes the mesh, samples the point cloud from the resulting `.vol` surface (not
-from the GT mesh), creates the `.binvox` input and computes DGtal visibility normals. For example, on Windows with the
-visibility tool available in WSL:
+from the GT mesh), creates the `.binvox` input and computes DGtal visibility normals. Build the bundled tool once with
+`python dataPreparation/visibilityLattices/build.py`; on Windows the build and execution use WSL2. Its C++ dependencies
+(DGtal, Polyscope and OpenMP) must be installed in WSL.
 
 ```
 python dataPreparation/prepare_shape.py \
-    --mesh "\\wsl.localhost\Ubuntu\home\romain22222\VolGallery\Octaflower\octa-flower17k.stl" \
+    --mesh "\\wsl.localhost\Ubuntu\home\romain22222\VolGallery\Octaflower\octa-flower17k.stl" \\
     --shape-dir experiments/shapes/octaflower \
-    --resolution 64 \
-    --visibility-tool /home/romain22222/visibilityLattices/cmake-build-release/visibilityLattices
+    --resolution 64
 ```
 
 Pass `--rotation X Y Z` for extrinsic XYZ Euler angles in degrees, or `--random-rotation` to sample each angle from an

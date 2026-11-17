@@ -1,8 +1,8 @@
 {
   "mc": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "marchingcubes",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -20,9 +20,9 @@
     }
   },
   "dc": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "dualcontouring",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -40,9 +40,9 @@
     }
   },
   "aa": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "antialiasing",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -60,9 +60,9 @@
     }
   },
   "fineaa": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "fineantialiasing",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -80,9 +80,9 @@
     }
   },
   "poissonReconstruction": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "poisson",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -100,9 +100,9 @@
     }
   },
   "shroud": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "shroud",
       "--work-dir", "$WORKDIR/reconstruction",
@@ -120,9 +120,9 @@
     }
   },
   "regularization": {
-    "path": "$ROOT/methods/Reproduction/run.py",
+    "path": "$ROOT/methods/Reconstruction/run.py",
     "args": [
-      "--repo-dir", "$ROOT/methods/Reproduction/Reconstruction",
+      "--repo-dir", "$ROOT/methods/Reconstruction/Reconstruction",
       "--vol", "$VOL",
       "--method", "regularization",
       "--work-dir", "$WORKDIR/reconstruction",

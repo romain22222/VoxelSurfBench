@@ -48,7 +48,7 @@ def executable_path(build_dir: Path, name: str) -> Path:
     for candidate in (build_dir / name, build_dir / "bin" / name):
         if candidate.is_file():
             return candidate
-    raise FileNotFoundError(f"Missing {name}; run methods/Reproduction/build.py first.")
+    raise FileNotFoundError(f"Missing {name}; run methods/Reconstruction/build.py first.")
 
 
 def run_tool(executable: Path, args: list[str], repo_dir: Path) -> None:
