@@ -29,3 +29,9 @@ or `--random-rotation` for independent XYZ angles sampled from an equal mixture 
 angles outside those ranges remain possible but unlikely. The random result is reproducible with `--seed`. The applied
 angles and distribution are recorded in the manifest. Use `--overwrite` only when intentionally regenerating existing
 inputs.
+
+To generate several randomly rotated variants in one run, use `--random-rotation-count N`. The provided `--shape-dir`
+is then used as a base: for example, `--shape-dir experiments/shapes/octaflower --random-rotation-count 3` creates
+`octaflower_1`, `octaflower_2`, and `octaflower_3` as separate shape directories. Each variant uses a distinct seed,
+starting at `--seed` and incrementing by one, so the rotations (and point sampling) are reproducible. This option
+cannot be combined with `--rotation` or `--random-rotation`.

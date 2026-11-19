@@ -136,7 +136,7 @@ def _rotation_matrix(args: argparse.Namespace) -> tuple[np.ndarray, dict[str, ob
     return matrix, rotation
 
 
-def prepare_shape(args: argparse.Namespace) -> Path:
+def _prepare_single_shape(args: argparse.Namespace) -> Path:
     mesh_path = args.mesh.resolve()
     shape_dir = args.shape_dir.resolve()
     gt_dir = shape_dir / "gt"
@@ -225,6 +225,23 @@ def prepare_shape(args: argparse.Namespace) -> Path:
     return shape_dir
 
 
+def prepare_shape(args: argparse.Namespace) -> list[Path]:
+    if args.random_rotation_count == 0:
+        return [_prepare_single_shape(args)]
+
+    if args.rotation is not None or args.random_rotation:
+        raise ValueError("--random-rotation-count cannot be combined with --rotation or --random-rotation.")
+
+    shape_dirs = []
+    for shape_id in range(1, args.random_rotation_count + 1):
+        variant_args = argparse.Namespace(**vars(args))
+        variant_args.shape_dir = args.shape_dir.with_name(f"{args.shape_dir.name}_{shape_id}")
+        variant_args.random_rotation = True
+        variant_args.seed = args.seed + shape_id - 1
+        shape_dirs.append(_prepare_single_shape(variant_args))
+    return shape_dirs
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Create VoxelSurfBench inputs from an original triangle mesh."
@@ -234,6 +251,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resolution", type=int, default=64)
     parser.add_argument("--point-count", type=int, default=10000)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--random-rotation-count",
+        type=int,
+        default=0,
+        help="Generate this many randomly rotated shapes in <shape-dir>_<id> folders (0 disables batch generation).",
+    )
     rotation_group = parser.add_mutually_exclusive_group()
     rotation_group.add_argument(
         "--rotation",
@@ -255,6 +278,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--resolution must be at least 2.")
     if args.point_count < 1:
         parser.error("--point-count must be positive.")
+    if args.random_rotation_count < 0:
+        parser.error("--random-rotation-count cannot be negative.")
     if args.gridstep <= 0:
         parser.error("--gridstep must be positive.")
     if args.radius < 1:
@@ -265,4 +290,5 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    print(prepare_shape(parse_args()))
+    for shape_dir in prepare_shape(parse_args()):
+        print(shape_dir)
